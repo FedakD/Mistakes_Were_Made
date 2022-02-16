@@ -1,6 +1,6 @@
 ---
 title: "Tidying Public Water Quality Data, and then Breaking Code!"
-author: "Matthew Ross"
+author: "Derek Fedak"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
   html_document:
@@ -17,7 +17,7 @@ editor_options:
 
 Working with large, open-access datasets can serve many purposes. It can be an excellent way to explore new ideas, before investing in field-work or experiments. It can be a great way to take local or experimental results and expand them to different ecosystems, places, or landscapes. Or it can be an excellent way to build, validate, and test ecological models on regional or national scales. 
 
-So why doesn't everyone use public data? Well, it's often collected by a variety of organizations, with different methods, units, and incosistent metadata. Together these issues with large public datasets, make them "messy." Messy data can be messy in many different ways, but at the basic level it means that data is hard to analyze, not because the data itself is bad, but because the way it is organized is unclear or inconsistent. 
+So why doesn't everyone use public data? Well, it's often collected by a variety of organizations, with different methods, units, and inconsistent metadata. Together these issues with large public datasets, make them "messy." Messy data can be messy in many different ways, but at the basic level it means that data is hard to analyze, not because the data itself is bad, but because the way it is organized is unclear or inconsistent. 
 
 In this lab, we will learn some tricks to "tidying" data, making it analysis-ready. We will depend heavily on the [tidyverse](https://www.tidyverse.org/), an excellent series of packages that make data manipulation beautiful and easy. We will also be working with water quality portal data so we will also use the excellent [dataRetrieval](https://github.com/USGS-R/dataRetrieval) package for downloading data from the Water Quality Portal and the USGS. 
 
@@ -30,16 +30,13 @@ This lab is meant to introduce the incredible variety of tools that one can use 
 library(tidyverse) # Package with dplyr, tibble, readr, and others to help clean coding
 library(dataRetrieval) # Package to download data. 
 library(sf) #Geospatial package to plot and explore data
-library(mapview) #Simple interface to leaflet interactive maps
+#library(mapview) #Simple interface to leaflet interactive maps
 library(broom) #Simplifies model outputs
 library(knitr) #Makes nice tables
 library(kableExtra) #Makes even nicer tables
 library(lubridate) #Makes working with dates easier
 library(ggthemes) #Makes plots prettier
 library(tidyr) #Makes multiple simultaneous models easier
-
-
-
 
 ```
 
@@ -85,7 +82,7 @@ end <- '2018-09-30'
 #Sample media (no sediment samples)
 sampleMedia = 'Water'
 
-#Comple all this information into a list with arguments
+#Compile all this information into a list with arguments
 site.args <- list(siteid=colorado$sites,
                   sampleMedia=sampleMedia,
                   startDateLo=start,
@@ -113,9 +110,9 @@ for(i in 1:length(parameters)){
   
   # Don't forget about pipes "%>%"! Pipes pass forward the results of a previous command, so that 
   #You don't have to constantly rename variables. I love them. 
-  
+  #Derek -- parameter -> parameters changed
   conc.list[[i]] <- readWQPdata(site.args) %>%
-    mutate(parameter=names(parameters)[i]) #Mutate just adds a new column to the data frame
+    mutate(parameters=names(parameters)[i]) #Mutate just adds a new column to the data frame
   
   #Pipes make the above command simple and succinct versus something more complicated like:
   
@@ -136,7 +133,7 @@ We also need to download some site info so we can know where these sites are.
 
 
 ```{r site info download, eval=F}
-#In addition to concentration informatino, we probably want to know some things about the sites
+#In addition to concentration information, we probably want to know some things about the sites
 #dplyr::select can help us only keep site information that is useful. 
 
 site.info <- whatWQPsites(siteid=colorado$sites) %>%
@@ -162,8 +159,8 @@ Now that we have downloaded the data we need to tidy it up. The water quality po
 There are two data types we downloaded. First site info which has things like lat and long, and second concentration data. We already slightly tidied the site info data so that it has sensible column names 
 
 ```{r site info}
-
-head(site..info)
+#Derek site..info -> site.info changed
+#head(site.info)
 ```
 
 This dataset looks nice because it has all the information we need and nothing extra. Now let's look at the concentration data. 
@@ -172,7 +169,7 @@ This dataset looks nice because it has all the information we need and nothing e
 head(conc.long) %>%
   kable(.,'html') %>%
   kable_styling() %>%
-  scroll_box(width='800px,height='300px')
+  scroll_box(width='800px',height='300px')
   
 ```
 
@@ -212,7 +209,7 @@ Now let's look at the tidier version
 ```{r examine tidier data}
 head(conc.long) %>%
   kable(.,'html') %>%
-  kablle_styling() %>%
+  kable_styling() %>%
   scroll_box(width='800px',height='300px')
 ```
 
@@ -232,13 +229,13 @@ We just need to remove these observations with a `dplyr::filter` call and then s
 
 ```{r tidy}
 conc.tidy <- conc.clean %>% 
-  filter(units = 'tons/day') %>%
+  filter(units != 'tons/day') %>%
   mutate(date=ymd(date)) %>%
   select(date,
          parameter,
          SiteID,
          conc=value)
-
+#Derek units = 'tons/day' -> units != 'tons/day' changed
 
 ```
 
@@ -251,7 +248,7 @@ Okay now we have a manageable data frame. But how do we want to organize the dat
 
 #The amazing group_by function groups all the data so that the summary
 #only applies to each subgroup (site, date, and parameter combination).
-#So in the end you get a daily average concentratino for each site and parameter type. 
+#So in the end you get a daily average concentration for each site and parameter type. 
 conc.daily <- conc.tidy %>%
   group_by(date,parameter,SiteID) %>% 
   summarize(conc_mean = mean(conc,na.rm=T))
@@ -275,7 +272,8 @@ site.sf <- site.info %>%
   st_as_sf(., coords=c('long','lat'), crs=4326)
 
 
-mapview(site.info)
+#mapview(site.sf)
+#plot(site.sf$geometry)
 
 ```
 
@@ -293,7 +291,7 @@ To keep the plots simple at first let's look at calcium data by site.
 ```{r daily plot}
 conc.daily %>%
   filter(parameter == 'Calcium') %>%
-  ggplot(.,aes(x=date,y=conc)) + 
+  ggplot(.,aes(x=date,y=conc_mean)) + 
   geom_point() + 
   facet_wrap(~SiteID)
   
@@ -310,8 +308,8 @@ Let's shrink the dataset to only look at annual change.
 conc.annual <- conc.daily %>%
   mutate(year=year(date)) %>%
   group_by(SiteID,year,parameter) %>%
-  summarize(annual_mean=mean(conc,na.rm=T),
-            annual_var=var(conc,na.rm=T))
+  summarize(annual_mean=mean(conc_mean,na.rm=T),
+            annual_var=var(conc_mean,na.rm=T))
   
 
 ```
@@ -421,7 +419,7 @@ Now we have an individual time-series analysis model for each site and parameter
 ```{r}
 conc.models %>%
   mutate(mod.glance=map(mods,glance)) %>%
-  unnest(mod.gglance) %>% #Unnesting unwraps the nested column. 
+  unnest(mod.glance) %>% #Unnesting unwraps the nested column. 
   arrange(desc(adj.r.squared)) %>%
   select(parameter,SiteID,adj.r.squared,p.value,logLik,AIC) %>%
   kable(.,'html') %>%
